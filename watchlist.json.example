@@ -1,0 +1,16 @@
+{
+  "stocks": [
+    {
+      "code": "03690",
+      "name": "美团",
+      "participants": ["C00019", "C00023"]
+    },
+    {
+      "code": "00700",
+      "name": "腾讯",
+      "participants": ["C00019"]
+    }
+  ],
+  "globalParticipants": ["C00019"],
+  "minConfidence": 0.5
+}

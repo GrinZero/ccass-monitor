@@ -1,0 +1,23 @@
+{
+  "name": "ccass-monitor",
+  "version": "1.0.0",
+  "description": "HKEX CCASS 机构持仓监控工具，支持多日趋势分析和交易信号生成",
+  "main": "src/cli.js",
+  "bin": {
+    "ccass": "src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "test": "node --test src/"
+  },
+  "keywords": ["hkex", "ccass", "港交所", "持仓监控"],
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "commander": "^12.0.0",
+    "js-yaml": "^4.1.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3"]
+  }
+}

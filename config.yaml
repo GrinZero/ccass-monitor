@@ -1,0 +1,40 @@
+# CCASS Monitor 配置文件
+
+signal:
+  weights:
+    positionChangeScore: 0.3
+    momentumScore: 0.3
+    volumeWeightScore: 0.2
+    rankingShiftScore: 0.2
+  thresholds:
+    strongBuy: 0.7
+    buy: 0.3
+    sell: -0.3
+    strongSell: -0.7
+
+defaults:
+  participant: "C00019"    # 汇丰
+  windowDays: 7
+
+alert:
+  minConfidence: 0.5
+  minVolumeRatio: 0.001    # 持仓变化 / 日均成交量 最小比值
+  rankShiftThreshold: 5     # 排名位移告警阈值
+
+fetch:
+  retryCount: 2
+  retryDelayMs: 3000
+  rateLimitMs: 2000
+
+# 股票名称映射（中文 → 代码）
+stockNames:
+  美团: "03690"
+  腾讯: "00700"
+  阿里巴巴: "09988"
+  小米: "01810"
+  比亚迪: "01211"
+  京东: "09618"
+  网易: "09999"
+  百度: "09888"
+  工商银行: "01398"
+  中国银行: "03988"
