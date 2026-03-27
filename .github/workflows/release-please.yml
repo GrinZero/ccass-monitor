@@ -13,6 +13,9 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - uses: google-github-actions/release-please-action@v4
         id: release
         with:
@@ -22,28 +25,28 @@ jobs:
           dry-run: false
 
       - name: Setup Node.js
-        if: steps.release.outputs.releases_created
+        if: steps.release.outputs.releases_created == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install pnpm
-        if: steps.release.outputs.releases_created
+        if: steps.release.outputs.releases_created == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 9
 
       - name: Install dependencies
-        if: steps.release.outputs.releases_created
+        if: steps.release.outputs.releases_created == 'true'
         run: pnpm install
 
       - name: Build
-        if: steps.release.outputs.releases_created
+        if: steps.release.outputs.releases_created == 'true'
         run: pnpm run build
 
       - name: Publish to npm
-        if: steps.release.outputs.releases_created
+        if: steps.release.outputs.releases_created == 'true'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

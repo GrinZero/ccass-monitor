@@ -18,7 +18,9 @@
     "start": "tsx src/cli.ts",
     "build": "tsc",
     "prepublishOnly": "tsc",
-    "test": "tsx --test src/"
+    "test": "vitest",
+    "test:run": "vitest run",
+    "coverage": "vitest run --coverage"
   },
   "keywords": [
     "hkex",
@@ -43,9 +45,11 @@
     "@types/js-yaml": "^4.0.9",
     "@typescript-eslint/eslint-plugin": "^8.57.2",
     "@typescript-eslint/parser": "^8.57.2",
+    "@vitest/coverage-v8": "^4.1.2",
     "eslint": "^10.1.0",
     "eslint-config-prettier": "^10.1.8",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2"
   }
 }
