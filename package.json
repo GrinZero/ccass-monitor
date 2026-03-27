@@ -9,7 +9,8 @@
   },
   "files": [
     "dist/",
-    "config.yaml"
+    "config.yaml",
+    "SKILL.md"
   ],
   "engines": {
     "node": ">=18"
