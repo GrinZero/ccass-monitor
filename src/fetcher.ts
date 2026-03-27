@@ -8,6 +8,7 @@ import http from 'http';
 import { URL } from 'url';
 import * as cache from './cache.js';
 import { getFetchConfig } from './config.js';
+import * as progress from './progress.js';
 import type { HttpResponse, CCASSResult, CCASSParticipant, HoldingRecord } from './types/index.js';
 
 const SEARCH_URL = 'https://www3.hkexnews.hk/sdw/search/searchsdw.aspx';
@@ -283,8 +284,12 @@ async function fetchRange(stockCode: string, participantId: string, startDate: s
   const fetchConfig = getFetchConfig();
   const dates = generateDateRange(startDate, endDate);
   const results: HoldingRecord[] = [];
+  const timerKey = `${stockCode}:${participantId}`;
 
-  for (const date of dates) {
+  progress.startTimer(timerKey);
+
+  for (let i = 0; i < dates.length; i++) {
+    const date = dates[i];
     const cached = cache.getHolding(stockCode, participantId, date);
     if (cached) {
       results.push({
@@ -296,6 +301,10 @@ async function fetchRange(stockCode: string, participantId: string, startDate: s
         rank: cached.rank,
         fetchTime: cached.fetch_time,
       });
+      // 输出进度（缓存命中）
+      const elapsed = progress.getElapsed(timerKey);
+      const remaining = progress.estimateRemaining(i + 1, dates.length, elapsed);
+      progress.showFetchProgress(stockCode, participantId, i + 1, dates.length, remaining);
       continue;
     }
 
@@ -319,8 +328,13 @@ async function fetchRange(stockCode: string, participantId: string, startDate: s
       console.error(`抓取失败 ${stockCode} ${participantId} ${date}: ${(err as Error).message}`);
     }
 
+    // 输出进度（网络抓取）
+    const elapsed = progress.getElapsed(timerKey);
+    const remaining = progress.estimateRemaining(i + 1, dates.length, elapsed);
+    progress.showFetchProgress(stockCode, participantId, i + 1, dates.length, remaining);
+
     // 限流
-    if (dates.indexOf(date) < dates.length - 1) {
+    if (i < dates.length - 1) {
       await sleep(fetchConfig.rateLimitMs);
     }
   }

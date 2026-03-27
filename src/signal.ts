@@ -31,6 +31,7 @@ async function generateSignal(stockCode: string, participantId: string): Promise
     const endDate = formatDate(now);
     const startDate = formatDateNTradingDaysAgo(now, windowDays - 1);
 
+    process.stderr.write(`[抓取] 历史数据不足(${history.length}天)，开始抓取 ${windowDays} 天数据...\n`);
     await fetcher.fetchRange(stockCode, participantId, startDate, endDate);
     history = cache.getHistory(stockCode, participantId, 30);
   }

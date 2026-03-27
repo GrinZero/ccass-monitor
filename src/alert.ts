@@ -7,6 +7,7 @@ import fs from 'fs';
 import * as signal from './signal.js';
 import { getAlertConfig } from './config.js';
 import * as cache from './cache.js';
+import * as progress from './progress.js';
 import type { Alert, Watchlist, WatchlistStock, AlertType, AlertAction, SignalResult } from './types/index.js';
 
 /**
@@ -35,7 +36,13 @@ async function checkAll(watchlist: Watchlist): Promise<Alert[]> {
   const alertConfig = getAlertConfig();
   const alerts: Alert[] = [];
 
-  for (const stock of watchlist.stocks) {
+  for (let i = 0; i < watchlist.stocks.length; i++) {
+    const stock = watchlist.stocks[i];
+    const stockName = stock.name || stock.code;
+
+    // 输出进度
+    progress.showStockProgress(stock.code, stockName, i + 1, watchlist.stocks.length);
+
     const participantIds = [
       ...(stock.participants || []),
       ...(watchlist.globalParticipants || []),

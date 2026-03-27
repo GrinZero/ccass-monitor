@@ -20,6 +20,7 @@ import * as signal from './signal.js';
 import * as alertEngine from './alert.js';
 import { getDefaults, getAlertConfig } from './config.js';
 import * as cache from './cache.js';
+import { setSilent } from './progress.js';
 
 let jsonOutput = false;
 
@@ -35,6 +36,7 @@ program
   .option('--json', '输出 JSON 格式（AI Agent 推荐使用）')
   .hook('preAction', (thisCommand) => {
     jsonOutput = thisCommand.opts().json ?? false;
+    setSilent(jsonOutput);
   });
 
 // ---------- fetch 子命令 ----------
