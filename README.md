@@ -14,7 +14,7 @@ ccass signal 03690 --json
 通过 `npx skills add` 安装 CCASS Monitor 技能，即可让 AI Agent 获得港交所机构持仓监控能力：
 
 ```bash
-npx skills add ccass-monitor
+npx skills add GrinZero/ccass-monitor
 ```
 
 安装后 AI Agent 将自动了解：
