@@ -3,11 +3,12 @@
  * 复用原 hkex_ccass_monitor.js 的抓取逻辑，封装为可复用函数
  */
 
-const https = require('https');
-const http = require('http');
-const { URL } = require('url');
-const cache = require('./cache');
-const config = require('./config');
+import https from 'https';
+import http from 'http';
+import { URL } from 'url';
+import * as cache from './cache.js';
+import { getFetchConfig } from './config.js';
+import type { HttpResponse, CCASSResult, CCASSParticipant, HoldingRecord } from './types/index.js';
 
 const SEARCH_URL = 'https://www3.hkexnews.hk/sdw/search/searchsdw.aspx';
 
@@ -22,12 +23,12 @@ const HEADERS = {
 /**
  * 发送 HTTP 请求（支持重定向）
  */
-function httpRequest(url, options = {}, postData = null, maxRedirects = 5) {
+function httpRequest(url: string, options: { method?: string; headers?: Record<string, string> } = {}, postData: string | null = null, maxRedirects: number = 5): Promise<HttpResponse> {
   const urlObj = new URL(url);
   const isHttps = urlObj.protocol === 'https:';
   const lib = isHttps ? https : http;
 
-  const reqOptions = {
+  const reqOptions: https.RequestOptions = {
     hostname: urlObj.hostname,
     port: urlObj.port || (isHttps ? 443 : 80),
     path: urlObj.pathname + urlObj.search,
@@ -37,7 +38,7 @@ function httpRequest(url, options = {}, postData = null, maxRedirects = 5) {
 
   return new Promise((resolve, reject) => {
     const req = lib.request(reqOptions, (res) => {
-      if ([301, 302, 303, 307, 308].includes(res.statusCode) && maxRedirects > 0) {
+      if ([301, 302, 303, 307, 308].includes(res.statusCode!) && maxRedirects > 0) {
         const location = res.headers.location;
         if (location) {
           let redirectUrl;
@@ -56,7 +57,7 @@ function httpRequest(url, options = {}, postData = null, maxRedirects = 5) {
 
       let data = '';
       res.on('data', (chunk) => (data += chunk));
-      res.on('end', () => resolve({ status: res.statusCode, data, headers: res.headers }));
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, data, headers: res.headers as Record<string, string | string[] | undefined> }));
     });
 
     req.on('error', reject);
@@ -73,8 +74,8 @@ function httpRequest(url, options = {}, postData = null, maxRedirects = 5) {
 /**
  * 从 HTML 中提取隐藏表单字段
  */
-function extractHiddenFields(html) {
-  const fields = {};
+function extractHiddenFields(html: string): Record<string, string> {
+  const fields: Record<string, string> = {};
   const regex = /<input[^>]*type="hidden"[^>]*name="([^"]*)"[^>]*value="([^"]*)"[^>]*>/g;
   let match;
   while ((match = regex.exec(html)) !== null) {
@@ -86,15 +87,15 @@ function extractHiddenFields(html) {
 /**
  * 解析 CCASS 表格数据
  */
-function parseTable(html) {
-  const results = [];
+function parseTable(html: string): string[][] {
+  const results: string[][] = [];
   const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
   const cellRegex = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/g;
 
   let rowMatch;
   while ((rowMatch = rowRegex.exec(html)) !== null) {
     const rowContent = rowMatch[1];
-    const cells = [];
+    const cells: string[] = [];
     let cellMatch;
     while ((cellMatch = cellRegex.exec(rowContent)) !== null) {
       const cellText = cellMatch[1]
@@ -114,7 +115,7 @@ function parseTable(html) {
 /**
  * 搜索 CCASS 数据
  */
-async function searchCCASS(date, stockCode) {
+async function searchCCASS(date: string, stockCode: string): Promise<CCASSResult> {
   const getResp = await httpRequest(SEARCH_URL, { method: 'GET' });
 
   if (getResp.status !== 200) {
@@ -163,7 +164,7 @@ async function searchCCASS(date, stockCode) {
 /**
  * 解析 CCASS 搜索结果
  */
-function parseCCASSResults(html) {
+function parseCCASSResults(html: string): CCASSResult {
   const tableMatch = html.match(
     /<table[^>]*class="[^"]*table-scroll[^"]*"[^>]*>([\s\S]*?)<\/table>/
   );
@@ -177,7 +178,7 @@ function parseCCASSResults(html) {
     return { stockName: '', participants: [] };
   }
 
-  const participants = [];
+  const participants: CCASSParticipant[] = [];
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     if (row.length < 4) continue;
@@ -205,7 +206,7 @@ function parseCCASSResults(html) {
 /**
  * 从单元格文本中提取值
  */
-function extractValue(text, prefix) {
+function extractValue(text: string, prefix: string): string {
   const idx = text.toLowerCase().indexOf(prefix);
   if (idx === -1) return text.trim();
   const value = text.substring(idx + prefix.length).trim();
@@ -219,10 +220,10 @@ function extractValue(text, prefix) {
 /**
  * 获取指定参与者单次持仓数据（带重试）
  */
-async function fetchOne(stockCode, participantId, date) {
-  const fetchConfig = config.getFetchConfig();
+async function fetchOne(stockCode: string, participantId: string, date: string): Promise<CCASSParticipant | null> {
+  const fetchConfig = getFetchConfig();
   const maxRetries = fetchConfig.retryCount;
-  let lastError;
+  let lastError: Error | undefined;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -232,35 +233,45 @@ async function fetchOne(stockCode, participantId, date) {
       cache.setFetchLog(stockCode, date, participantId, true, null);
       return participant || null;
     } catch (err) {
-      lastError = err;
+      lastError = err as Error;
       if (attempt < maxRetries) {
         await sleep(fetchConfig.retryDelayMs);
       }
     }
   }
 
-  cache.setFetchLog(stockCode, date, participantId, false, lastError.message);
+  cache.setFetchLog(stockCode, date, participantId, false, lastError?.message || 'Unknown error');
   throw lastError;
 }
 
 /**
  * 抓取并自动写入缓存
  */
-async function fetchAndCache(stockCode, participantId, date) {
+async function fetchAndCache(stockCode: string, participantId: string, date: string): Promise<CCASSParticipant | null> {
   // 检查缓存
   const cached = cache.getHolding(stockCode, participantId, date);
-  if (cached) return cached;
+  if (cached) {
+    return {
+      id: cached.participant_id,
+      name: '',
+      address: '',
+      shareholding: cached.shareholding,
+      percentage: cached.percentage || '',
+    };
+  }
 
   const record = await fetchOne(stockCode, participantId, date);
   if (record) {
-    cache.setHolding({
+    const holdingRecord: HoldingRecord = {
       stockCode,
       participantId,
       date,
       shareholding: record.shareholding,
       percentage: record.percentage,
       rank: null, // 单次抓取不返回排名
-    });
+      fetchTime: Date.now(),
+    };
+    cache.setHolding(holdingRecord);
   }
   return record;
 }
@@ -268,35 +279,44 @@ async function fetchAndCache(stockCode, participantId, date) {
 /**
  * 批量抓取日期范围（带限流）
  */
-async function fetchRange(stockCode, participantId, startDate, endDate) {
-  const fetchConfig = config.getFetchConfig();
+async function fetchRange(stockCode: string, participantId: string, startDate: string, endDate: string): Promise<HoldingRecord[]> {
+  const fetchConfig = getFetchConfig();
   const dates = generateDateRange(startDate, endDate);
-  const results = [];
+  const results: HoldingRecord[] = [];
 
   for (const date of dates) {
     const cached = cache.getHolding(stockCode, participantId, date);
     if (cached) {
-      results.push(cached);
+      results.push({
+        stockCode: cached.stock_code,
+        participantId: cached.participant_id,
+        date: cached.date,
+        shareholding: cached.shareholding,
+        percentage: cached.percentage,
+        rank: cached.rank,
+        fetchTime: cached.fetch_time,
+      });
       continue;
     }
 
     try {
       const record = await fetchOne(stockCode, participantId, date);
       if (record) {
-        const saved = {
+        const saved: HoldingRecord = {
           stockCode,
           participantId,
           date,
           shareholding: record.shareholding,
           percentage: record.percentage,
           rank: null,
+          fetchTime: Date.now(),
         };
         cache.setHolding(saved);
         results.push(saved);
       }
     } catch (err) {
       // 记录错误但继续
-      console.error(`抓取失败 ${stockCode} ${participantId} ${date}: ${err.message}`);
+      console.error(`抓取失败 ${stockCode} ${participantId} ${date}: ${(err as Error).message}`);
     }
 
     // 限流
@@ -311,22 +331,23 @@ async function fetchRange(stockCode, participantId, startDate, endDate) {
 /**
  * 抓取某日某股票全部参与者数据
  */
-async function fetchAllParticipants(stockCode, date) {
-  const fetchConfig = config.getFetchConfig();
-  let lastError;
+async function fetchAllParticipants(stockCode: string, date: string): Promise<CCASSParticipant[]> {
+  const fetchConfig = getFetchConfig();
+  let lastError: Error | undefined;
 
   for (let attempt = 0; attempt <= fetchConfig.retryCount; attempt++) {
     try {
       const result = await searchCCASS(date, stockCode);
 
       // 批量写入缓存（含排名）
-      const records = result.participants.map((p, idx) => ({
+      const records: HoldingRecord[] = result.participants.map((p, idx) => ({
         stockCode,
         participantId: p.id,
         date,
         shareholding: p.shareholding,
         percentage: p.percentage,
         rank: idx + 1,
+        fetchTime: Date.now(),
       }));
 
       if (records.length > 0) {
@@ -336,23 +357,23 @@ async function fetchAllParticipants(stockCode, date) {
       cache.setFetchLog(stockCode, date, null, true, null);
       return result.participants;
     } catch (err) {
-      lastError = err;
+      lastError = err as Error;
       if (attempt < fetchConfig.retryCount) {
         await sleep(fetchConfig.retryDelayMs);
       }
     }
   }
 
-  cache.setFetchLog(stockCode, date, null, false, lastError.message);
+  cache.setFetchLog(stockCode, date, null, false, lastError?.message || 'Unknown error');
   throw lastError;
 }
 
-function sleep(ms) {
+function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function generateDateRange(startDate, endDate) {
-  const dates = [];
+function generateDateRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
   const current = new Date(startDate);
   const end = new Date(endDate);
 
@@ -372,7 +393,7 @@ function generateDateRange(startDate, endDate) {
   });
 }
 
-module.exports = {
+export {
   fetchOne,
   fetchAndCache,
   fetchRange,

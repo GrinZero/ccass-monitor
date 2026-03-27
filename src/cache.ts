@@ -3,18 +3,19 @@
  * 提供数据持久化和历史查询能力
  */
 
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
+import Database from 'better-sqlite3';
+import path from 'path';
+import fs from 'fs';
+import type { HoldingRecord, DailyHoldingsRow, FetchLogRow } from './types/index.js';
 
-const DB_PATH = path.join(__dirname, '..', 'data', 'ccass.db');
+const DB_PATH = path.join(import.meta.dirname, '..', 'data', 'ccass.db');
 
-let db = null;
+let db: Database.Database | null = null;
 
 /**
  * 初始化数据库（创建表、WAL 模式）
  */
-function initDatabase() {
+function initDatabase(): Database.Database {
   if (db) return db;
 
   const dataDir = path.dirname(DB_PATH);
@@ -79,7 +80,7 @@ function initDatabase() {
 /**
  * 获取单条持仓记录（缓存读取）
  */
-function getHolding(stockCode, participantId, date) {
+function getHolding(stockCode: string, participantId: string, date: string): DailyHoldingsRow | null {
   const database = initDatabase();
   const row = database
     .prepare(
@@ -87,14 +88,14 @@ function getHolding(stockCode, participantId, date) {
        WHERE stock_code = ? AND participant_id = ? AND date = ?
        LIMIT 1`
     )
-    .get(stockCode, participantId, date);
+    .get(stockCode, participantId, date) as DailyHoldingsRow | undefined;
   return row || null;
 }
 
 /**
  * 批量获取某股票某参与者在日期范围内的所有记录
  */
-function getRange(stockCode, participantId, startDate, endDate) {
+function getRange(stockCode: string, participantId: string, startDate: string, endDate: string): DailyHoldingsRow[] {
   const database = initDatabase();
   const rows = database
     .prepare(
@@ -102,14 +103,14 @@ function getRange(stockCode, participantId, startDate, endDate) {
        WHERE stock_code = ? AND participant_id = ? AND date >= ? AND date <= ?
        ORDER BY date ASC`
     )
-    .all(stockCode, participantId, startDate, endDate);
+    .all(stockCode, participantId, startDate, endDate) as DailyHoldingsRow[];
   return rows;
 }
 
 /**
  * 获取某日某股票的全部参与者记录（含排名）
  */
-function getParticipants(stockCode, date) {
+function getParticipants(stockCode: string, date: string): DailyHoldingsRow[] {
   const database = initDatabase();
   const rows = database
     .prepare(
@@ -117,14 +118,14 @@ function getParticipants(stockCode, date) {
        WHERE stock_code = ? AND date = ?
        ORDER BY rank ASC`
     )
-    .all(stockCode, date);
+    .all(stockCode, date) as DailyHoldingsRow[];
   return rows;
 }
 
 /**
  * 存储单条持仓记录（UPSERT）
  */
-function setHolding(record) {
+function setHolding(record: HoldingRecord): void {
   const database = initDatabase();
   const now = Date.now();
   database
@@ -153,7 +154,7 @@ function setHolding(record) {
 /**
  * 批量存储持仓记录
  */
-function setHoldings(records) {
+function setHoldings(records: HoldingRecord[]): void {
   const database = initDatabase();
   const insert = database.prepare(
     `INSERT INTO daily_holdings
@@ -168,7 +169,7 @@ function setHoldings(records) {
   );
 
   const now = Date.now();
-  const insertMany = database.transaction((recs) => {
+  const insertMany = database.transaction((recs: HoldingRecord[]) => {
     for (const r of recs) {
       insert.run(r.stockCode, r.participantId, r.date, r.shareholding, r.percentage, r.rank, now);
     }
@@ -179,7 +180,7 @@ function setHoldings(records) {
 /**
  * 记录抓取日志
  */
-function setFetchLog(stockCode, date, participantId, success, error) {
+function setFetchLog(stockCode: string, date: string, participantId: string | null, success: boolean, error: string | null): void {
   const database = initDatabase();
   database
     .prepare(
@@ -192,7 +193,7 @@ function setFetchLog(stockCode, date, participantId, success, error) {
 /**
  * 查询某股票某日的抓取日志（检查是否已有成功记录）
  */
-function getFetchLog(stockCode, date) {
+function getFetchLog(stockCode: string, date: string): FetchLogRow | null {
   const database = initDatabase();
   const row = database
     .prepare(
@@ -200,14 +201,14 @@ function getFetchLog(stockCode, date) {
        WHERE stock_code = ? AND date = ? AND success = 1
        ORDER BY fetch_time DESC LIMIT 1`
     )
-    .get(stockCode, date);
+    .get(stockCode, date) as FetchLogRow | undefined;
   return row || null;
 }
 
 /**
  * 获取历史持仓记录（用于信号计算）
  */
-function getHistory(stockCode, participantId, days = 30) {
+function getHistory(stockCode: string, participantId: string, days: number = 30): DailyHoldingsRow[] {
   const database = initDatabase();
   const rows = database
     .prepare(
@@ -216,14 +217,14 @@ function getHistory(stockCode, participantId, days = 30) {
        ORDER BY date DESC
        LIMIT ?`
     )
-    .all(stockCode, participantId, days);
+    .all(stockCode, participantId, days) as DailyHoldingsRow[];
   return rows;
 }
 
 /**
  * 获取某日某股票的平均日成交量（估算，用持仓变化代替）
  */
-function getAvgDailyVolume(stockCode, participantId, days = 30) {
+function getAvgDailyVolume(stockCode: string, participantId: string, days: number = 30): number {
   const records = getRangeForAvg(stockCode, participantId, days);
   if (records.length < 2) return 0;
 
@@ -234,7 +235,7 @@ function getAvgDailyVolume(stockCode, participantId, days = 30) {
   return Math.round(totalChange / (records.length - 1));
 }
 
-function getRangeForAvg(stockCode, participantId, days) {
+function getRangeForAvg(stockCode: string, participantId: string, days: number): Array<{ shareholding: number }> {
   const database = initDatabase();
   return database
     .prepare(
@@ -242,10 +243,10 @@ function getRangeForAvg(stockCode, participantId, days) {
        WHERE stock_code = ? AND participant_id = ?
        ORDER BY date DESC LIMIT ?`
     )
-    .all(stockCode, participantId, days);
+    .all(stockCode, participantId, days) as Array<{ shareholding: number }>;
 }
 
-module.exports = {
+export {
   initDatabase,
   getHolding,
   getRange,

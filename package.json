@@ -2,15 +2,30 @@
   "name": "ccass-monitor",
   "version": "1.0.0",
   "description": "HKEX CCASS 机构持仓监控工具，支持多日趋势分析和交易信号生成",
-  "main": "src/cli.js",
+  "type": "module",
+  "main": "dist/cli.js",
   "bin": {
-    "ccass": "src/cli.js"
+    "ccass": "dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "config.yaml"
+  ],
+  "engines": {
+    "node": ">=18"
   },
   "scripts": {
-    "start": "node src/cli.js",
-    "test": "node --test src/"
+    "start": "tsx src/cli.ts",
+    "build": "tsc",
+    "prepublishOnly": "tsc",
+    "test": "tsx --test src/"
   },
-  "keywords": ["hkex", "ccass", "港交所", "持仓监控"],
+  "keywords": [
+    "hkex",
+    "ccass",
+    "港交所",
+    "持仓监控"
+  ],
   "license": "MIT",
   "dependencies": {
     "better-sqlite3": "^11.0.0",
@@ -18,6 +33,19 @@
     "js-yaml": "^4.1.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3"]
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/js-yaml": "^4.0.9",
+    "@typescript-eslint/eslint-plugin": "^8.57.2",
+    "@typescript-eslint/parser": "^8.57.2",
+    "eslint": "^10.1.0",
+    "eslint-config-prettier": "^10.1.8",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   }
 }

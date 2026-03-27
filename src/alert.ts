@@ -3,20 +3,22 @@
  * 基于信号结果和 watchlist 生成智能告警
  */
 
-const fs = require('fs');
-const signal = require('./signal');
-const config = require('./config');
+import fs from 'fs';
+import * as signal from './signal.js';
+import { getAlertConfig } from './config.js';
+import * as cache from './cache.js';
+import type { Alert, Watchlist, WatchlistStock, AlertType, AlertAction, SignalResult } from './types/index.js';
 
 /**
  * 加载并验证 watchlist 文件
  */
-function loadWatchlist(filePath) {
+function loadWatchlist(filePath: string): Watchlist {
   if (!fs.existsSync(filePath)) {
     throw new Error(`Watchlist file not found: ${filePath}`);
   }
 
   const content = fs.readFileSync(filePath, 'utf8');
-  const data = JSON.parse(content);
+  const data = JSON.parse(content) as Watchlist;
 
   // 验证结构
   if (!data.stocks || !Array.isArray(data.stocks)) {
@@ -29,9 +31,9 @@ function loadWatchlist(filePath) {
 /**
  * 检查所有监控标的
  */
-async function checkAll(watchlist) {
-  const alertConfig = config.getAlertConfig();
-  const alerts = [];
+async function checkAll(watchlist: Watchlist): Promise<Alert[]> {
+  const alertConfig = getAlertConfig();
+  const alerts: Alert[] = [];
 
   for (const stock of watchlist.stocks) {
     const participantIds = [
@@ -57,7 +59,7 @@ async function checkAll(watchlist) {
         }
       } catch (err) {
         // 单个参与者失败不影响其他
-        console.error(`告警检查失败 ${stock.code} ${pid}: ${err.message}`);
+        console.error(`告警检查失败 ${stock.code} ${pid}: ${(err as Error).message}`);
       }
     }
   }
@@ -68,8 +70,8 @@ async function checkAll(watchlist) {
 /**
  * 检测告警类型
  */
-function detectAlertType(signalResult, alertConfig) {
-  const { positionChangeScore, momentumScore } = signalResult.indicators;
+function detectAlertType(signalResult: SignalResult, _alertConfig: ReturnType<typeof getAlertConfig>): AlertType | null {
+  const { positionChangeScore = 0, momentumScore = 0 } = signalResult.indicators || {};
 
   // 强烈积累信号：持仓变化 + 动量同时正向
   if (positionChangeScore > 0.5 && momentumScore > 0.5) {
@@ -96,7 +98,7 @@ function detectAlertType(signalResult, alertConfig) {
 /**
  * 量价过滤
  */
-function filterByVolume(change, avgVolume, alertConfig) {
+function _filterByVolume(change: number, avgVolume: number, alertConfig: ReturnType<typeof getAlertConfig>): boolean {
   if (avgVolume === 0) return false;
   const ratio = Math.abs(change) / avgVolume;
   return ratio >= alertConfig.minVolumeRatio;
@@ -105,8 +107,7 @@ function filterByVolume(change, avgVolume, alertConfig) {
 /**
  * 排名位移检测
  */
-async function detectRankShift(stockCode, date, participantId, alertConfig) {
-  const cache = require('./cache');
+async function detectRankShift(stockCode: string, date: string, participantId: string, alertConfig: ReturnType<typeof getAlertConfig>): Promise<'RANK_UP' | 'RANK_DOWN' | null> {
   const participants = await cache.getParticipants(stockCode, date);
   const currentRank = participants.find((p) => p.participant_id === participantId)?.rank;
 
@@ -140,17 +141,17 @@ async function detectRankShift(stockCode, date, participantId, alertConfig) {
 /**
  * 生成告警 JSON
  */
-function generateAlert(type, stock, participantId, signalResult) {
+function generateAlert(type: AlertType, stock: WatchlistStock, participantId: string, signalResult: SignalResult): Alert {
   const participantName = participantId === 'C00019' ? '汇丰' : participantId;
 
-  const actionMap = {
+  const actionMap: Record<AlertType, AlertAction> = {
     STRONG_ACCUMULATION: 'CONSIDER_BUY',
     STRONG_DISTRIBUTION: 'CONSIDER_SELL',
     RANK_UP: 'CONSIDER_BUY',
     RANK_DOWN: 'CONSIDER_SELL',
   };
 
-  const typeSummaryMap = {
+  const typeSummaryMap: Record<AlertType, string> = {
     STRONG_ACCUMULATION: '机构强势积累',
     STRONG_DISTRIBUTION: '机构强势分配',
     RANK_UP: '排名上升',
@@ -161,13 +162,18 @@ function generateAlert(type, stock, participantId, signalResult) {
     alertId: generateUUID(),
     type,
     stockCode: stock.code,
-    stockName: stock.name,
+    stockName: stock.name || stock.code,
     participantId,
     participantName,
     date: signalResult.date,
     confidence: signalResult.confidence,
-    summary: `${participantName}${typeSummaryMap[type]} ${stock.name}，置信度 ${(signalResult.confidence * 100).toFixed(0)}%`,
-    indicators: signalResult.indicators,
+    summary: `${participantName}${typeSummaryMap[type]} ${stock.name || stock.code}，置信度 ${(signalResult.confidence * 100).toFixed(0)}%`,
+    indicators: signalResult.indicators || {
+      positionChangeScore: 0,
+      momentumScore: 0,
+      volumeWeightScore: 0,
+      rankingShiftScore: 0,
+    },
     action: actionMap[type] || 'HOLD',
   };
 }
@@ -175,7 +181,7 @@ function generateAlert(type, stock, participantId, signalResult) {
 /**
  * 简单的 UUID 生成
  */
-function generateUUID() {
+function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -183,7 +189,7 @@ function generateUUID() {
   });
 }
 
-module.exports = {
+export {
   loadWatchlist,
   checkAll,
   detectRankShift,

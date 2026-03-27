@@ -5,17 +5,23 @@
  * 使用方法:
  *   node src/cli.js fetch 03690 --date 2024/03/06
  *   node src/cli.js compare 03690 --window 7
- *   node src/cli.js signal 03690
+ *   node src/cli.js signal 01810 --participant C00019
  *   node src/cli.js alert --watchlist my-stocks.json
+ *
+ * AI Agent 使用:
+ *   ccass fetch 03690 --json
+ *   ccass signal 03690 --json
  */
 
-const { Command } = require('commander');
-const fetcher = require('./fetcher');
-const multiDay = require('./multi-day');
-const signal = require('./signal');
-const alertEngine = require('./alert');
-const config = require('./config');
-const cache = require('./cache');
+import { Command } from 'commander';
+import * as fetcher from './fetcher.js';
+import * as multiDay from './multi-day.js';
+import * as signal from './signal.js';
+import * as alertEngine from './alert.js';
+import { getDefaults, getAlertConfig } from './config.js';
+import * as cache from './cache.js';
+
+let jsonOutput = false;
 
 const program = new Command();
 
@@ -25,7 +31,11 @@ cache.initDatabase();
 program
   .name('ccass')
   .description('HKEX CCASS 机构持仓监控工具')
-  .version('1.0.0');
+  .version('1.0.0')
+  .option('--json', '输出 JSON 格式（AI Agent 推荐使用）')
+  .hook('preAction', (thisCommand) => {
+    jsonOutput = thisCommand.opts().json ?? false;
+  });
 
 // ---------- fetch 子命令 ----------
 program
@@ -35,10 +45,10 @@ program
   .option('--participant <id>', '参与者 ID，默认从 config.yaml 读取')
   .option('--all-participants', '获取所有参与者数据')
   .option('--output <file>', '输出到文件')
-  .action(async (stockCode, opts) => {
+  .action(async (stockCode: string, opts: { date?: string; participant?: string; allParticipants?: boolean; output?: string }) => {
     try {
       const date = opts.date || getPrevTradingDay();
-      const defaults = config.getDefaults();
+      const defaults = getDefaults();
 
       if (opts.allParticipants) {
         const participants = await fetcher.fetchAllParticipants(stockCode, date);
@@ -49,7 +59,7 @@ program
         output({ stockCode, participantId, date, data });
       }
     } catch (err) {
-      errorExit(err);
+      errorExit(err as Error);
     }
   });
 
@@ -57,19 +67,19 @@ program
 program
   .command('compare <stockCode>')
   .description('执行多日对比分析')
-  .option('--window <days>', '对比窗口天数', String, String(config.getDefaults().windowDays))
+  .option('--window <days>', '对比窗口天数', String, String(getDefaults().windowDays))
   .option('--participant <id>', '参与者 ID，默认从 config.yaml 读取')
   .option('--output <file>', '输出到文件')
-  .action(async (stockCode, opts) => {
+  .action(async (stockCode: string, opts: { window?: string; participant?: string; output?: string }) => {
     try {
-      const defaults = config.getDefaults();
+      const defaults = getDefaults();
       const participantId = opts.participant || defaults.participant;
-      const windowDays = parseInt(opts.window, 10);
+      const windowDays = parseInt(opts.window || String(defaults.windowDays), 10);
 
       const result = await multiDay.analyzeWindow(stockCode, participantId, windowDays);
       output(result);
     } catch (err) {
-      errorExit(err);
+      errorExit(err as Error);
     }
   });
 
@@ -78,15 +88,15 @@ program
   .command('signal <stockCode>')
   .description('生成交易信号')
   .option('--participant <id>', '参与者 ID，默认从 config.yaml 读取')
-  .action(async (stockCode, opts) => {
+  .action(async (stockCode: string, opts: { participant?: string }) => {
     try {
-      const defaults = config.getDefaults();
+      const defaults = getDefaults();
       const participantId = opts.participant || defaults.participant;
 
       const result = await signal.generateSignal(stockCode, participantId);
       output(result);
     } catch (err) {
-      errorExit(err);
+      errorExit(err as Error);
     }
   });
 
@@ -95,33 +105,49 @@ program
   .command('alert')
   .description('检查监控列表并告警')
   .option('--watchlist <file>', '监控列表文件', 'watchlist.json')
-  .option('--min-confidence <score>', '最低置信度阈值', String, String(config.getAlertConfig().minConfidence))
-  .action(async (opts) => {
+  .option('--min-confidence <score>', '最低置信度阈值', String, String(getAlertConfig().minConfidence))
+  .action(async (opts: { watchlist?: string; minConfidence?: string }) => {
     try {
-      const watchlist = alertEngine.loadWatchlist(opts.watchlist);
+      const watchlist = alertEngine.loadWatchlist(opts.watchlist || 'watchlist.json');
       const alerts = await alertEngine.checkAll(watchlist);
       output({ alerts, count: alerts.length });
     } catch (err) {
-      errorExit(err);
+      errorExit(err as Error);
     }
   });
 
-// 输出 JSON
-function output(data) {
-  const json = JSON.stringify(data, null, 2);
-  process.stdout.write(json + '\n');
+// 输出格式化
+function output(data: unknown): void {
+  if (jsonOutput) {
+    process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+  } else {
+    // 人类可读输出
+    process.stdout.write(formatHumanReadable(data) + '\n');
+  }
+}
+
+// 人类可读格式化
+function formatHumanReadable(data: unknown): string {
+  if (typeof data === 'object' && data !== null) {
+    return JSON.stringify(data, null, 2);
+  }
+  return String(data);
 }
 
 // 错误退出
-function errorExit(err) {
-  process.stderr.write(
-    JSON.stringify({ error: 'Failed', detail: err.message }) + '\n'
-  );
+function errorExit(err: Error): void {
+  if (jsonOutput) {
+    process.stderr.write(
+      JSON.stringify({ error: 'Failed', detail: err.message }) + '\n'
+    );
+  } else {
+    process.stderr.write(`Error: ${err.message}\n`);
+  }
   process.exit(1);
 }
 
 // 获取上一交易日
-function getPrevTradingDay() {
+function getPrevTradingDay(): string {
   const now = new Date();
   now.setDate(now.getDate() - 1);
   while (now.getDay() === 0 || now.getDay() === 6) {

@@ -3,15 +3,16 @@
  * 从 config.yaml 读取所有配置，支持默认值
  */
 
-const fs = require('fs');
-const path = require('path');
-const yaml = require('js-yaml');
+import fs from 'fs';
+import path from 'path';
+import yaml from 'js-yaml';
+import type { Config, SignalWeights, SignalThresholds, AlertConfig, FetchConfig, StockNames } from './types/index.js';
 
-const CONFIG_PATH = path.join(__dirname, '..', 'config.yaml');
+const CONFIG_PATH = path.join(import.meta.dirname, '..', 'config.yaml');
 
-let configCache = null;
+let configCache: Config | null = null;
 
-const DEFAULT_CONFIG = {
+const DEFAULT_CONFIG: Config = {
   signal: {
     weights: {
       positionChangeScore: 0.3,
@@ -46,17 +47,20 @@ const DEFAULT_CONFIG = {
 /**
  * 深度合并 source into target
  */
-function deepMerge(target, source) {
+function deepMerge<T extends Record<string, unknown>>(target: T, source: Partial<T>): T {
   for (const key of Object.keys(source)) {
+    const sourceValue = source[key as keyof T];
+    const targetValue = target[key as keyof T];
     if (
-      source[key] !== null &&
-      typeof source[key] === 'object' &&
-      !Array.isArray(source[key])
+      sourceValue !== null &&
+      typeof sourceValue === 'object' &&
+      !Array.isArray(sourceValue) &&
+      typeof targetValue === 'object' &&
+      targetValue !== null
     ) {
-      if (!target[key]) target[key] = {};
-      deepMerge(target[key], source[key]);
+      deepMerge(targetValue as Record<string, unknown>, sourceValue as Record<string, unknown>);
     } else {
-      target[key] = source[key];
+      (target as Record<string, unknown>)[key] = sourceValue;
     }
   }
   return target;
@@ -65,65 +69,65 @@ function deepMerge(target, source) {
 /**
  * 加载配置文件
  */
-function loadConfig() {
+function loadConfig(): Config {
   if (configCache) return configCache;
 
-  let fileConfig = {};
+  let fileConfig: Partial<Config> = {};
   if (fs.existsSync(CONFIG_PATH)) {
     const content = fs.readFileSync(CONFIG_PATH, 'utf8');
-    fileConfig = yaml.load(content) || {};
+    fileConfig = yaml.load(content) as Partial<Config> || {};
   }
 
   configCache = deepMerge(JSON.parse(JSON.stringify(DEFAULT_CONFIG)), fileConfig);
-  return configCache;
+  return configCache!;
 }
 
 /**
  * 返回信号引擎权重
  */
-function getWeights() {
+function getWeights(): SignalWeights {
   return loadConfig().signal.weights;
 }
 
 /**
  * 返回信号阈值
  */
-function getThresholds() {
+function getThresholds(): SignalThresholds {
   return loadConfig().signal.thresholds;
 }
 
 /**
  * 返回默认配置
  */
-function getDefaults() {
+function getDefaults(): Config['defaults'] {
   return loadConfig().defaults;
 }
 
 /**
  * 返回告警配置
  */
-function getAlertConfig() {
+function getAlertConfig(): AlertConfig {
   return loadConfig().alert;
 }
 
 /**
  * 返回抓取配置
  */
-function getFetchConfig() {
+function getFetchConfig(): FetchConfig {
   return loadConfig().fetch;
 }
 
 /**
  * 返回股票名称映射
  */
-function getStockNames() {
+function getStockNames(): StockNames {
   return loadConfig().stockNames;
 }
 
 /**
  * 根据名称查找股票代码
  */
-function resolveStockCode(name) {
+function resolveStockCode(name: string): string | null {
   const names = getStockNames();
   // 直接是代码
   if (/^\d{5}$/.test(name)) return name;
@@ -132,7 +136,7 @@ function resolveStockCode(name) {
   return null;
 }
 
-module.exports = {
+export {
   loadConfig,
   getWeights,
   getThresholds,
