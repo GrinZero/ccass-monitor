@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/GrinZero/ccass-monitor/compare/v1.1.0...v1.1.1) (2026-03-27)
+
+
+### Bug Fixes
+
+* 移除无效的 pnpm-workspace.yaml ([68301d7](https://github.com/GrinZero/ccass-monitor/commit/68301d7335f43100c837e0539b66bd3f7d40dcbf))
+
 ## [1.1.0](https://github.com/GrinZero/ccass-monitor/compare/v1.0.0...v1.1.0) (2026-03-27)
 
 
