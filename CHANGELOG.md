@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/GrinZero/ccass-monitor/compare/v1.1.1...v1.2.0) (2026-03-27)
+
+
+### Features
+
+* test npm publish workflow ([02383b9](https://github.com/GrinZero/ccass-monitor/commit/02383b9c6c01e9018e6c566c23d1b109bd132479))
+
 ## [1.1.1](https://github.com/GrinZero/ccass-monitor/compare/v1.1.0...v1.1.1) (2026-03-27)
 
 
