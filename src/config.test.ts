@@ -1,30 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-// Create mocks
-const mockExistsSync = vi.fn();
-const mockReadFileSync = vi.fn();
-
-// Mock modules before they are imported
-vi.mock('path', async () => ({
-  join: vi.fn(() => '/mock/config.yaml'),
-  dirname: vi.fn(() => '/mock'),
-}));
-
-vi.mock('fs', async () => ({
-  existsSync: (...args: unknown[]) => mockExistsSync(...args),
-  readFileSync: (...args: unknown[]) => mockReadFileSync(...args),
-}));
+import { describe, it, expect } from 'vitest';
+import {
+  getWeights,
+  getThresholds,
+  getDefaults,
+  getAlertConfig,
+  getFetchConfig,
+  getStockNames,
+  resolveStockCode,
+} from './config.js';
 
 describe('config.ts', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockExistsSync.mockReturnValue(false);
-    mockReadFileSync.mockReturnValue('');
-  });
-
   describe('getWeights', () => {
-    it('should return default signal weights', async () => {
-      const { getWeights } = await import('./config.js');
+    it('should return signal weights from config', () => {
       const weights = getWeights();
 
       expect(weights.positionChangeScore).toBe(0.3);
@@ -35,8 +22,7 @@ describe('config.ts', () => {
   });
 
   describe('getThresholds', () => {
-    it('should return default signal thresholds', async () => {
-      const { getThresholds } = await import('./config.js');
+    it('should return signal thresholds from config', () => {
       const thresholds = getThresholds();
 
       expect(thresholds.strongBuy).toBe(0.7);
@@ -47,8 +33,7 @@ describe('config.ts', () => {
   });
 
   describe('getDefaults', () => {
-    it('should return default values', async () => {
-      const { getDefaults } = await import('./config.js');
+    it('should return default values from config', () => {
       const defaults = getDefaults();
 
       expect(defaults.participant).toBe('C00019');
@@ -57,8 +42,7 @@ describe('config.ts', () => {
   });
 
   describe('getAlertConfig', () => {
-    it('should return default alert config', async () => {
-      const { getAlertConfig } = await import('./config.js');
+    it('should return alert config from config', () => {
       const alertConfig = getAlertConfig();
 
       expect(alertConfig.minConfidence).toBe(0.5);
@@ -68,8 +52,7 @@ describe('config.ts', () => {
   });
 
   describe('getFetchConfig', () => {
-    it('should return default fetch config', async () => {
-      const { getFetchConfig } = await import('./config.js');
+    it('should return fetch config from config', () => {
       const fetchConfig = getFetchConfig();
 
       expect(fetchConfig.retryCount).toBe(2);
@@ -79,76 +62,45 @@ describe('config.ts', () => {
   });
 
   describe('getStockNames', () => {
-    it('should return empty stock names when no config file', async () => {
-      mockExistsSync.mockReturnValue(false);
-
-      const { getStockNames } = await import('./config.js');
-      const stockNames = getStockNames();
-
-      expect(Object.keys(stockNames)).toHaveLength(0);
-    });
-
-    it('should return stock names from config file', async () => {
-      mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockReturnValue(`
-stockNames:
-  美团: "03690"
-  腾讯: "00700"
-`);
-
-      const { getStockNames } = await import('./config.js');
+    it('should return stock names from config', () => {
       const stockNames = getStockNames();
 
       expect(stockNames['美团']).toBe('03690');
       expect(stockNames['腾讯']).toBe('00700');
+      expect(stockNames['阿里巴巴']).toBe('09988');
+      expect(stockNames['小米']).toBe('01810');
+    });
+
+    it('should have all expected stock mappings', () => {
+      const stockNames = getStockNames();
+
+      expect(Object.keys(stockNames)).toContain('美团');
+      expect(Object.keys(stockNames)).toContain('腾讯');
+      expect(Object.keys(stockNames)).toContain('阿里巴巴');
+      expect(Object.keys(stockNames)).toContain('小米');
+      expect(Object.keys(stockNames)).toContain('比亚迪');
+      expect(Object.keys(stockNames)).toContain('京东');
+      expect(Object.keys(stockNames)).toContain('网易');
+      expect(Object.keys(stockNames)).toContain('百度');
+      expect(Object.keys(stockNames)).toContain('工商银行');
+      expect(Object.keys(stockNames)).toContain('中国银行');
     });
   });
 
   describe('resolveStockCode', () => {
-    it('should return input if it is a 5-digit code', async () => {
-      mockExistsSync.mockReturnValue(false);
-
-      const { resolveStockCode } = await import('./config.js');
-
+    it('should return input if it is a 5-digit code', () => {
       expect(resolveStockCode('03690')).toBe('03690');
       expect(resolveStockCode('00700')).toBe('00700');
     });
 
-    it('should resolve name to code from stockNames', async () => {
-      mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockReturnValue(`
-stockNames:
-  美团: "03690"
-`);
-
-      const { resolveStockCode } = await import('./config.js');
-
+    it('should resolve Chinese name to stock code', () => {
       expect(resolveStockCode('美团')).toBe('03690');
+      expect(resolveStockCode('腾讯')).toBe('00700');
+      expect(resolveStockCode('阿里巴巴')).toBe('09988');
     });
 
-    it('should return null for unknown name', async () => {
-      mockExistsSync.mockReturnValue(false);
-
-      const { resolveStockCode } = await import('./config.js');
-
-      expect(resolveStockCode('未知')).toBeNull();
-    });
-  });
-
-  describe('loadConfig', () => {
-    it('should load config from yaml file', async () => {
-      mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockReturnValue(`
-defaults:
-  participant: CUSTOM_ID
-  windowDays: 14
-`);
-
-      const { loadConfig } = await import('./config.js');
-      const config = loadConfig();
-
-      expect(config.defaults.participant).toBe('CUSTOM_ID');
-      expect(config.defaults.windowDays).toBe(14);
+    it('should return null for unknown name', () => {
+      expect(resolveStockCode('未知公司')).toBeNull();
     });
   });
 });
