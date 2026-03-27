@@ -18,3 +18,5 @@ jobs:
           release-type: node
           package-name: ccass-monitor
           default-branch: main
+          publish: true
+          dry-run: false
