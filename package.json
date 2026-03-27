@@ -1,6 +1,6 @@
 {
   "name": "ccass-monitor",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "HKEX CCASS 机构持仓监控工具，支持多日趋势分析和交易信号生成",
   "type": "module",
   "main": "dist/cli.js",
