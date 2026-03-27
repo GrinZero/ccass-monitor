@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/GrinZero/ccass-monitor/compare/v1.2.0...v1.3.0) (2026-03-27)
+
+
+### Features
+
+* 添加进度显示功能 ([46a7cae](https://github.com/GrinZero/ccass-monitor/commit/46a7cae725135d42603d05bdbd55488d8c120a05))
+
+
+### Bug Fixes
+
+* **ci:** 修复 release-please-action 参数并精简 README ([f9804d1](https://github.com/GrinZero/ccass-monitor/commit/f9804d1a4f4c84754c0c77fbeee369f7127f561a))
+
 ## [1.2.0](https://github.com/GrinZero/ccass-monitor/compare/v1.1.1...v1.2.0) (2026-03-27)
 
 
