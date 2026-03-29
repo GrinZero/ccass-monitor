@@ -22,7 +22,7 @@ alert:
   rankShiftThreshold: 5     # 排名位移告警阈值
 
 fetch:
-  retryCount: 2
+  retryCount: 5
   retryDelayMs: 3000
   rateLimitMs: 2000
 
