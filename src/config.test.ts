@@ -55,7 +55,7 @@ describe('config.ts', () => {
     it('should return fetch config from config', () => {
       const fetchConfig = getFetchConfig();
 
-      expect(fetchConfig.retryCount).toBe(2);
+      expect(fetchConfig.retryCount).toBe(5);
       expect(fetchConfig.retryDelayMs).toBe(3000);
       expect(fetchConfig.rateLimitMs).toBe(2000);
     });

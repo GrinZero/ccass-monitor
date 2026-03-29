@@ -236,7 +236,9 @@ async function fetchOne(stockCode: string, participantId: string, date: string):
     } catch (err) {
       lastError = err as Error;
       if (attempt < maxRetries) {
-        await sleep(fetchConfig.retryDelayMs);
+        const delay = fetchConfig.retryDelayMs * Math.pow(2, attempt);
+        console.warn(`抓取失败 (第 ${attempt + 1} 次尝试): ${lastError.message}。将在 ${delay / 1000}s 后重试...`);
+        await sleep(delay);
       }
     }
   }
@@ -373,7 +375,9 @@ async function fetchAllParticipants(stockCode: string, date: string): Promise<CC
     } catch (err) {
       lastError = err as Error;
       if (attempt < fetchConfig.retryCount) {
-        await sleep(fetchConfig.retryDelayMs);
+        const delay = fetchConfig.retryDelayMs * Math.pow(2, attempt);
+        console.warn(`抓取失败 (第 ${attempt + 1} 次尝试): ${lastError.message}。将在 ${delay / 1000}s 后重试...`);
+        await sleep(delay);
       }
     }
   }

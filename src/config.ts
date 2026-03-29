@@ -37,7 +37,7 @@ const DEFAULT_CONFIG: Config = {
     rankShiftThreshold: 5,
   },
   fetch: {
-    retryCount: 2,
+    retryCount: 5,
     retryDelayMs: 3000,
     rateLimitMs: 2000,
   },

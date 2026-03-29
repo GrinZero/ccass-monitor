@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as config from './config.js';
 
 // Mock cache module
 vi.mock('./cache.js', () => ({
@@ -12,10 +13,10 @@ vi.mock('./cache.js', () => ({
 
 // Mock config module
 vi.mock('./config.js', () => ({
-  getFetchConfig: () => ({
+  getFetchConfig: vi.fn().mockReturnValue({
     retryCount: 2,
-    retryDelayMs: 100,
-    rateLimitMs: 100,
+    retryDelayMs: 10,
+    rateLimitMs: 10,
   }),
 }));
 
@@ -68,4 +69,5 @@ describe('fetcher.ts', () => {
       // This tests internal logic indirectly
     });
   });
+
 });
